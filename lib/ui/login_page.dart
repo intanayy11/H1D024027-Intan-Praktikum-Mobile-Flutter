@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:belajar_flutter/bloc/login_bloc.dart';
+import 'package:belajar_flutter/helpers/user_info.dart';
+import 'package:belajar_flutter/ui/produk_page.dart';
 import 'package:belajar_flutter/ui/registrasi_page.dart';
+import 'package:belajar_flutter/widget/warning_dialog.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -10,7 +14,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final bool _isLoading = false;
+  bool _isLoading = false;
 
   final _emailTextboxController = TextEditingController();
   final _passwordTextboxController = TextEditingController();
@@ -31,9 +35,7 @@ class _LoginPageState extends State<LoginPage> {
                 _emailTextField(),
                 _passwordTextField(),
                 _buttonLogin(),
-                const SizedBox(
-                  height: 30,
-                ),
+                const SizedBox(height: 30),
                 _menuRegistrasi(),
               ],
             ),
@@ -43,15 +45,14 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  //Membuat Textbox email
+  // Membuat Textbox email
   Widget _emailTextField() {
     return TextFormField(
       decoration: const InputDecoration(labelText: "Email"),
       keyboardType: TextInputType.emailAddress,
       controller: _emailTextboxController,
       validator: (value) {
-        //validasi harus diisi
-        if (value!.isEmpty) {
+        if (value == null || value.isEmpty) {
           return 'Email harus diisi';
         }
         return null;
@@ -59,7 +60,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  //Membuat Textbox password
+  // Membuat Textbox password
   Widget _passwordTextField() {
     return TextFormField(
       decoration: const InputDecoration(labelText: "Password"),
@@ -67,8 +68,7 @@ class _LoginPageState extends State<LoginPage> {
       obscureText: true,
       controller: _passwordTextboxController,
       validator: (value) {
-        //jika karakter yang dimasukkan kurang dari 6 karakter
-        if (value!.isEmpty) {
+        if (value == null || value.isEmpty) {
           return "Password harus diisi";
         }
         return null;
@@ -76,14 +76,62 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  //Membuat Tombol Login
+  // Membuat Tombol Login
   Widget _buttonLogin() {
     return ElevatedButton(
       child: const Text("Login"),
       onPressed: () {
         var validate = _formKey.currentState!.validate();
+        if (validate) {
+          if (!_isLoading) _submit();
+        }
       },
     );
+  }
+
+  void _submit() {
+    _formKey.currentState!.save();
+    setState(() {
+      _isLoading = true;
+    });
+    LoginBloc.login(
+      email: _emailTextboxController.text,
+      password: _passwordTextboxController.text,
+    ).then((value) async {
+      if (value.code == 200) {
+        await UserInfo().setToken(value.token.toString());
+        await UserInfo().setUserID(int.parse(value.userID.toString()));
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const ProdukPage()),
+        );
+      } else {
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) => const WarningDialog(
+            description: "Login gagal, silahkan coba lagi",
+          ),
+        );
+      }
+    }, onError: (error) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) => const WarningDialog(
+          description: "Login gagal, silahkan coba lagi",
+        ),
+      );
+    }).whenComplete(() {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    });
   }
 
   // Membuat menu untuk membuka halaman registrasi
